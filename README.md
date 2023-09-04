@@ -1,5 +1,11 @@
 # LibrarianLib
 
+> This version of LibrarianLib is an unofficial port developed by HauntedPasta1 and based on the original work by Team Wizardry. This port has been created with our explicit permission.
+>
+> Please note that as it is an unofficial port, we cannot ensure the same level of quality as provided by Team Wizardry's original discontinued versions of this mod. Thank you for your support and understanding.
+>
+> Sincerely, Team Wizardry
+
 [![Build Status](https://travis-ci.org/TeamWizardry/LibrarianLib.svg?branch=1.12)](https://travis-ci.org/TeamWizardry/LibrarianLib)
 
 ## [Documentation WIP](https://docs.teamwizardry.com/index.php?title=Main_Page)

@@ -7,6 +7,7 @@ import kotlin.concurrent.thread
 
 plugins {
     id("java-library")
+    id("java")
     id("maven-publish")
     kotlin("jvm") version "1.9.0"
     id("com.jfrog.bintray")
@@ -80,8 +81,6 @@ repositories {
 }
 
 dependencies {
-    api("net.shadowfacts:Forgelin:1.8.0")
-    compileOnly("net.shadowfacts:Forgelin:1.8.0")
     implementation("curse.maven:forgelin-continuous-456403:4635770")
 
 // shade("org.magicwerk:brownies-collections:0.9.13")
@@ -92,16 +91,12 @@ dependencies {
 // shade("com.github.thecodewarrior:bitfont:b8251e7ba0")
     implementation("com.ibm.icu:icu4j:63.1")
     implementation("org.msgpack:msgpack-core:0.8.16")
-    implementation("com.github.thecodewarrior:bitfont:-SNAPSHOT")
+    implementation("com.github.thecodewarrior:bitfont:0.4")
 }
 
 val sourceJar = tasks.register("sourceJar", Jar::class) {
-    from(
-            tasks["sourceMainJava"],
-            tasks["sourceMainKotlin"],
-            tasks["sourceTestJava"],
-            tasks["sourceTestKotlin"]
-    )
+    from(sourceSets["main"].allSource)
+    from(sourceSets["test"].allSource)
     include("**/*.kt", "**/*.java", "**/*.scala")
     archiveClassifier.set("sources") // Use archiveClassifier to set the classifier
     includeEmptyDirs = false
