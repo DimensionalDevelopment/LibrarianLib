@@ -1,6 +1,3 @@
-enableFeaturePreview("STABLE_PUBLISHING")
-
-val kotlin_version: String by settings
 val dokka_version: String by settings
 val forgegradle_version: String by settings
 val bintray_version: String by settings
@@ -10,19 +7,32 @@ val abc_version: String by settings
 pluginManagement {
     repositories {
         maven {
-            name = "forge"
-            url = uri("https://files.minecraftforge.net/maven")
+            // RetroFuturaGradle
+            name = "GTNH Maven"
+            url = uri("http://jenkins.usrv.eu:8081/nexus/content/groups/public/")
+            isAllowInsecureProtocol = true
+            mavenContent {
+                includeGroup("com.gtnewhorizons")
+                includeGroup("com.gtnewhorizons.retrofuturagradle")
+            }
         }
         gradlePluginPortal()
+        mavenCentral()
+        mavenLocal()
     }
+
+    plugins {
+        id("org.gradle.toolchains.foojay-resolver-convention") version "0.4.0"
+    }
+
     resolutionStrategy {
         eachPlugin {
-            if (requested.id.id.startsWith("org.jetbrains.kotlin")) useVersion(kotlin_version)
+            if (requested.id.id.startsWith("org.jetbrains.kotlin")) useVersion("1.9.0")
             else when (requested.id.id) {
-                "net.minecraftforge.gradle.forge" -> useModule("net.minecraftforge.gradle:ForgeGradle:$forgegradle_version")
-                "org.jetbrains.dokka" -> useVersion(dokka_version)
-                "com.jfrog.bintray" -> useVersion(bintray_version)
-                "com.jfrog.artifactory" -> useVersion(artifactory_version)
+                "net.minecraftforge.gradle" -> useModule("net.minecraftforge.gradle:ForgeGradle:6.+")
+                "org.jetbrains.dokka" -> useVersion("0.9.17")
+                "com.jfrog.bintray" -> useVersion("1.8.4")
+                "com.jfrog.artifactory" -> useVersion("4.7.5")
             }
         }
     }

@@ -1,55 +1,65 @@
 import com.jfrog.bintray.gradle.BintrayExtension
 import groovy.lang.GroovyObject
-import net.minecraftforge.gradle.user.TaskSingleReobf
 import org.jetbrains.dokka.gradle.DokkaTask
-import org.jetbrains.kotlin.gradle.dsl.Coroutines
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig
 import kotlin.concurrent.thread
 
 plugins {
-    `java-library`
-    `maven-publish`
-    kotlin("jvm")
-    id("net.minecraftforge.gradle.forge")
+    id("java-library")
+    id("maven-publish")
+    kotlin("jvm") version "1.9.0"
     id("com.jfrog.bintray")
     id("com.jfrog.artifactory")
     id("org.jetbrains.dokka")
+    id("org.jetbrains.gradle.plugin.idea-ext") version "1.1.7"
+    id("eclipse")
+    id("com.gtnewhorizons.retrofuturagradle") version "1.3.16"
+    id("com.matthewprenger.cursegradle") version "1.4.0"
 }
 
 val branch = prop("branch") ?: "git rev-parse --abbrev-ref HEAD".execute(rootDir.absolutePath).lines().last()
 logger.info("On branch $branch")
 
 version = "${branch.replace('/', '-')}-".takeUnless { prop("mc_version")?.contains(branch) == true }.orEmpty() + prop("mod_version") + "." + prop("build_number")
-description = "A library for the TeamWizardry mods "
-base.archivesBaseName = prop("mod_name") + "-" + prop("mc_version")
+description = "A library for the TeamWizardry mods"
+base.archivesBaseName = "${prop("mod_name")}-${prop("mc_version")}"
 
-minecraft {
-    version = "${prop("mc_version")}-${prop("forge_version")}"
-    mappings = prop("mc_mappings")
-    runDir = "run"
-    coreMod = prop("core_plugin")
-
-    replace("GRADLE:VERSION", prop("mod_version"))
-    replace("GRADLE:BUILD", prop("build_number"))
-    replaceIn("LibrarianLib.kt")
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+        vendor.set(org.gradle.jvm.toolchain.JvmVendorSpec.AZUL)
+    }
+    withSourcesJar()
 }
 
-reobf.getByName("jar") {
-    extraLines("PK: com/ibm/icu com/teamwizardry/librarianlib/shade/icu")
+minecraft {
+    mcVersion.set("1.12.2")
+
+    mcpMappingChannel.set("stable")
+    mcpMappingVersion.set("39")
+
+    username.set("Developer")
+
+    val args = mutableListOf("-ea:${project.group}")
+    args.add("-Dfml.coreMods.load=com.teamwizardry.librarianlib.asm.LibLibCorePlugin")
+
+    extraRunJvmArguments.add("-ea:${project.group}")
+}
+
+// Generate a group.archives_base_name.Tags class
+tasks.injectTags.configure {
+    // Change Tags class' name here:
+    outputClassName.set("${project.group}.${base.archivesBaseName}.Tags")
 }
 
 sourceSets["main"].allSource.srcDir("src/example/java")
 sourceSets["main"].allSource.srcDir("src/api/java")
 sourceSets["main"].resources.srcDir("src/example/resources")
 
-val shade by configurations.creating // TODO: investigate contained deps
-
-configurations.compile.extendsFrom(shade)
-configurations.testCompile.extendsFrom(shade)
-
 repositories {
-    jcenter()
+    mavenCentral()
+    maven { url = uri("https://files.minecraftforge.net/maven") }
     maven {
         name = "Bluexin repo"
         url = uri("https://maven.bluexin.be/repository/snapshots/")
@@ -58,30 +68,34 @@ repositories {
         name = "Jitpack.io"
         url = uri("https://jitpack.io")
     }
+    maven {
+        name = "CleanroomMC Maven"
+        url = uri("https://maven.cleanroommc.com")
+    }
+    maven {
+        name = "CurseMaven"
+        url = uri("https://cursemaven.com")
+    }
+    mavenLocal()
 }
 
 dependencies {
     api("net.shadowfacts:Forgelin:1.8.0")
-    runtime("net.shadowfacts:Forgelin:1.8.0")
+    compileOnly("net.shadowfacts:Forgelin:1.8.0")
+    implementation("curse.maven:forgelin-continuous-456403:4635770")
 
-    shade("org.magicwerk:brownies-collections:0.9.13")
-//    implementation("org.magicwerk:brownies-collections:0.9.13")
+// shade("org.magicwerk:brownies-collections:0.9.13")
+   implementation("org.magicwerk:brownies-collections:0.9.13")
 
-    shade("com.ibm.icu:icu4j:63.1")
-    shade("org.msgpack:msgpack-core:0.8.16")
-    shade("com.github.thecodewarrior:bitfont:b8251e7ba0")
-//    implementation("com.ibm.icu:icu4j:63.1")
-//    implementation("org.msgpack:msgpack-core:0.8.16")
-//    implementation("com.github.thecodewarrior:bitfont:-SNAPSHOT")
+// shade("com.ibm.icu:icu4j:63.1")
+// shade("org.msgpack:msgpack-core:0.8.16")
+// shade("com.github.thecodewarrior:bitfont:b8251e7ba0")
+   implementation("com.ibm.icu:icu4j:63.1")
+   implementation("org.msgpack:msgpack-core:0.8.16")
+   implementation("com.github.thecodewarrior:bitfont:-SNAPSHOT")
 }
 
-kotlin.experimental.coroutines = Coroutines.ENABLE
-
-/**
- * Doing this will ensure we get the sources with replaced values
- * as defined in `minecraft` block in our sources jar.
- */
-val sourceJar = tasks.replace("sourceJar", Jar::class).apply {
+val sourceJar = tasks.register("sourceJar", Jar::class) {
     from(
             tasks["sourceMainJava"],
             tasks["sourceMainKotlin"],
@@ -89,24 +103,14 @@ val sourceJar = tasks.replace("sourceJar", Jar::class).apply {
             tasks["sourceTestKotlin"]
     )
     include("**/*.kt", "**/*.java", "**/*.scala")
-    classifier = "sources"
+    archiveClassifier.set("sources") // Use archiveClassifier to set the classifier
     includeEmptyDirs = false
 }
 
 tasks {
     getByName<Jar>("jar") {
-        for (dep in shade) {
-            from(zipTree(dep)) {
-                exclude("META-INF", "META-INF/**")
-                includeEmptyDirs = false
-                eachFile {
-                    path = path.replace("com/ibm/icu", "com/teamwizardry/librarianlib/shade/icu")
-                }
-//                extraLines("PK: com/ibm/icu com/teamwizardry/librarianlib/shade/icu")
-            }
-        }
         exclude("*/**/librarianlibtest/**", "*/**/librarianlib.test/**")
-        classifier = "fat"
+        archiveClassifier.set("fat")
 
         manifest {
             attributes("FMLCorePluginContainsFMLMod" to true)
@@ -146,10 +150,8 @@ val dokka by tasks.getting(DokkaTask::class) {
     outputFormat = "javadoc"
     jdkVersion = 8
     sourceDirs =
-            tasks["sourceMainJava"].outputs.files +
-            tasks["sourceMainKotlin"].outputs.files +
-            tasks["sourceTestJava"].outputs.files +
-            tasks["sourceTestKotlin"].outputs.files
+            sourceSets["main"].allSource.srcDirs +
+                    sourceSets["test"].allSource.srcDirs // Adjust the source sets as needed
 
     includes = listOf("src/dokka/kotlin-dsl.md")
     doFirst {
@@ -159,26 +161,33 @@ val dokka by tasks.getting(DokkaTask::class) {
 
 val javadocJar by tasks.creating(Jar::class) {
     from(dokka.outputs)
-    classifier = "javadoc"
+    archiveClassifier.set("javadoc")
 }
 
 val deobfJar by tasks.creating(Jar::class) {
     from(sourceSets["main"].output)
 }
 
-val reobfJar : TaskSingleReobf by tasks
+val reobfJar = tasks.named<com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar>("reobfJar") {
+    // Configure the 'reobfJar' task here
+    // For example, specify the input and output files:
 
-lateinit var publication : Publication
+    from(sourceSets["main"].output)
+    into("$buildDir/libs/") // Specify the output directory
+    include("**/*.class")
+}
+
+lateinit var publication: Publication
 publishing {
     publication = publications.create("publication", MavenPublication::class) {
         from(components["java"])
-        artifact(reobfJar.jar) {
-            builtBy(reobfJar)
+        artifact(reobfJar) { // Use the task reference, not a string
+            builtBy(reobfJar) // Use the task object, not a string
             classifier = "release"
         }
         artifact(sourceJar)
         artifact(deobfJar)
-//        artifact(javadocJar)
+        // artifact(javadocJar) // Uncomment if needed
         this.artifactId = base.archivesBaseName
     }
 
@@ -260,5 +269,5 @@ fun hasProp(name: String): Boolean = extra.has(name)
 
 fun prop(name: String): String? = extra.properties[name] as? String
 
-fun DependencyHandler.coroutine(module: String): Any =
+fun coroutine(module: String): Any =
         "org.jetbrains.kotlinx:kotlinx-coroutines-$module:${prop("coroutinesVersion")}"
