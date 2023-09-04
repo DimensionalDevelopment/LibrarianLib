@@ -85,14 +85,14 @@ dependencies {
     implementation("curse.maven:forgelin-continuous-456403:4635770")
 
 // shade("org.magicwerk:brownies-collections:0.9.13")
-   implementation("org.magicwerk:brownies-collections:0.9.13")
+    implementation("org.magicwerk:brownies-collections:0.9.13")
 
 // shade("com.ibm.icu:icu4j:63.1")
 // shade("org.msgpack:msgpack-core:0.8.16")
 // shade("com.github.thecodewarrior:bitfont:b8251e7ba0")
-   implementation("com.ibm.icu:icu4j:63.1")
-   implementation("org.msgpack:msgpack-core:0.8.16")
-   implementation("com.github.thecodewarrior:bitfont:-SNAPSHOT")
+    implementation("com.ibm.icu:icu4j:63.1")
+    implementation("org.msgpack:msgpack-core:0.8.16")
+    implementation("com.github.thecodewarrior:bitfont:-SNAPSHOT")
 }
 
 val sourceJar = tasks.register("sourceJar", Jar::class) {
@@ -175,72 +175,6 @@ val reobfJar = tasks.named<com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJ
     from(sourceSets["main"].output)
     into("$buildDir/libs/") // Specify the output directory
     include("**/*.class")
-}
-
-lateinit var publication: Publication
-publishing {
-    publication = publications.create("publication", MavenPublication::class) {
-        from(components["java"])
-        artifact(reobfJar) { // Use the task reference, not a string
-            builtBy(reobfJar) // Use the task object, not a string
-            classifier = "release"
-        }
-        artifact(sourceJar)
-        artifact(deobfJar)
-        // artifact(javadocJar) // Uncomment if needed
-        this.artifactId = base.archivesBaseName
-    }
-
-    repositories {
-        val mavenPassword = if (hasProp("local")) null else prop("mavenPassword")
-        maven {
-            val remoteURL = "https://maven.bluexin.be/repository/" + (if ((version as String).contains("SNAPSHOT")) "snapshots" else "releases")
-            val localURL = "file://$buildDir/repo"
-            url = uri(if (mavenPassword != null) remoteURL else localURL)
-            if (mavenPassword != null) {
-                credentials(PasswordCredentials::class.java) {
-                    username = prop("mavenUser")
-                    password = mavenPassword
-                }
-            }
-        }
-    }
-}
-
-bintray {
-    user = prop("bintrayUser")
-    key = prop("bintrayApiKey")
-    publish = true
-    override = true
-    setPublications(publication.name)
-    pkg(delegateClosureOf<BintrayExtension.PackageConfig> {
-        repo = "teamwizardry"
-        name = project.name
-        userOrg = "teamwizardry"
-        websiteUrl = "https://github.com/TeamWizardry/LibrarianLib"
-        githubRepo = "TeamWizardry/LibrarianLib"
-        vcsUrl = "https://github.com/TeamWizardry/LibrarianLib"
-        issueTrackerUrl = "https://github.com/TeamWizardry/LibrarianLib/issues"
-        desc = project.description
-        setLabels("minecraft", "mc", "modding", "forge", "library", "wizardry")
-        setLicenses("LGPL-3.0")
-    })
-}
-
-artifactory {
-    setContextUrl("https://oss.jfrog.org")
-    publish(delegateClosureOf<PublisherConfig> {
-        repository(delegateClosureOf<GroovyObject> {
-            val targetRepoKey = if (project.version.toString().endsWith("-SNAPSHOT")) "oss-snapshot-local" else "oss-release-local"
-            setProperty("repoKey", targetRepoKey)
-            setProperty("username", prop("bintrayUser"))
-            setProperty("password", prop("bintrayApiKey"))
-            setProperty("maven", true)
-        })
-        defaults(delegateClosureOf<GroovyObject> {
-            invokeMethod("publications", publication.name)
-        })
-    })
 }
 
 fun String.execute(wd: String? = null, ignoreExitCode: Boolean = false): String =
